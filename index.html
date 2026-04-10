@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Theophos Rewards System</title>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0f0f0f; color: #ffffff; text-align: center; padding: 20px; }
+        .main-card { max-width: 450px; margin: auto; background: #1a1a1a; padding: 25px; border-radius: 20px; border: 2px solid #FFD700; box-shadow: 0 10px 30px rgba(0,0,0,0.7); }
+        h2 { color: #FFD700; margin-bottom: 10px; }
+        .video-box { position: relative; width: 100%; height: 250px; background: #000; border-radius: 12px; overflow: hidden; }
+        iframe { width: 100%; height: 100%; border: none; }
+        #timer { font-size: 2rem; color: #FFD700; margin: 20px 0; font-weight: bold; text-shadow: 0 0 10px rgba(255, 215, 0, 0.3); }
+        .btn-submit { background: #FFD700; color: #000; border: none; padding: 18px; border-radius: 10px; font-weight: bold; font-size: 1.1rem; cursor: pointer; display: none; width: 100%; transition: transform 0.2s; }
+        .btn-submit:active { transform: scale(0.95); }
+        p.status { color: #888; font-size: 0.9rem; }
+    </style>
+</head>
+<body>
+
+<div class="main-card">
+    <h2>Theophos Rewards</h2>
+    <p class="status">Watch 120s to unlock your reward</p>
+    
+    <div class="video-box" id="player">
+        <p style="padding-top: 100px;">Finding creator video...</p>
+    </div>
+
+    <div id="timer">120s</div>
+    <button id="submitBtn" class="btn-submit" onclick="location.href='submit.html'">SUBMIT YOUR VIDEO LINK</button>
+</div>
+
+<script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyDphx9VNL7zycGOofDyDyY688pggYl4mns",
+      authDomain: "theophos-rewards-system.firebaseapp.com",
+      databaseURL: "https://theophos-rewards-system-default-rtdb.firebaseio.com",
+      projectId: "theophos-rewards-system",
+      storageBucket: "theophos-rewards-system.firebasestorage.app",
+      messagingSenderId: "669378222",
+      appId: "1:669378222:web:4a295fab14a09ff3662f3f"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    // 1. Get all videos from database
+    db.ref('videos').once('value').then((snapshot) => {
+        let videos = [];
+        snapshot.forEach(child => { videos.push(child.val().id); });
+
+        // Filter watched videos from LocalStorage
+        let watched = JSON.parse(localStorage.getItem('theophos_watched')) || [];
+        let available = videos.filter(id => !watched.includes(id));
+
+        // Reset if all watched
+        if (available.length === 0) { 
+            available = videos; 
+            watched = []; 
+            localStorage.setItem('theophos_watched', JSON.stringify([]));
+        }
+
+        // Pick random (or default if DB is empty)
+        const currentID = available.length > 0 ? available[Math.floor(Math.random() * available.length)] : "dQw4w9WgXcQ";
+        document.getElementById('player').innerHTML = `<iframe src="https://www.youtube.com/embed/${currentID}?autoplay=1&rel=0" allow="autoplay"></iframe>`;
+        
+        startCountdown(currentID);
+    });
+
+    function startCountdown(videoId) {
+        let time = 120;
+        const timerText = document.getElementById('timer');
+        const btn = document.getElementById('submitBtn');
+
+        const counter = setInterval(() => {
+            time--;
+            timerText.innerText = time + "s";
+
+            if (time <= 0) {
+                clearInterval(counter);
+                timerText.style.display = 'none';
+                btn.style.display = 'block';
+
+                // Mark as watched
+                let watched = JSON.parse(localStorage.getItem('theophos_watched')) || [];
+                watched.push(videoId);
+                localStorage.setItem('theophos_watched', JSON.stringify(watched));
+            }
+        }, 1000);
+    }
+</script>
+</body>
+</html>
