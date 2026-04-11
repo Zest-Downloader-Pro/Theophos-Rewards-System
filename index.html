@@ -3,30 +3,38 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Theophos Rewards System | Leaderboard</title>
+    <title>Theophos Creator Hub | Growth & Loyalty</title>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; background: #0f0f0f; color: #fff; text-align: center; padding: 20px; }
-        .container { max-width: 500px; margin: auto; background: #1a1a1a; padding: 20px; border-radius: 20px; border: 2px solid #FFD700; }
-        iframe { width: 100%; height: 250px; border-radius: 12px; }
-        #timer { font-size: 2rem; color: #FFD700; margin: 15px 0; font-weight: bold; }
-        .btn { background: #FFD700; color: #000; padding: 15px; border: none; border-radius: 10px; font-weight: bold; width: 100%; display: none; cursor: pointer; }
+        body { font-family: 'Segoe UI', sans-serif; background: #0f0f0f; color: #fff; text-align: center; padding: 20px; margin: 0; }
+        .container { max-width: 500px; margin: auto; background: #1a1a1a; padding: 20px; border-radius: 20px; border: 2px solid #FFD700; box-shadow: 0 0 20px rgba(255, 215, 0, 0.2); }
+        .video-wrapper { position: relative; width: 100%; padding-bottom: 56.25%; height: 0; border-radius: 12px; overflow: hidden; background: #000; }
+        .video-wrapper iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none; }
+        #timer { font-size: 3rem; color: #FFD700; margin: 20px 0; font-weight: bold; text-shadow: 0 0 10px rgba(255, 215, 0, 0.5); }
+        .btn { background: #FFD700; color: #000; padding: 18px; border: none; border-radius: 12px; font-weight: bold; width: 100%; display: none; cursor: pointer; font-size: 1.1rem; text-transform: uppercase; }
         
-        /* Leaderboard Style */
-        .leaderboard { margin-top: 30px; text-align: left; background: #252525; padding: 15px; border-radius: 12px; }
-        .leaderboard h3 { color: #FFD700; border-bottom: 1px solid #444; padding-bottom: 5px; }
-        .entry { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #333; font-size: 0.9rem; }
-        .rank { color: #FFD700; font-weight: bold; margin-right: 10px; }
+        .leaderboard { margin-top: 30px; text-align: left; background: #252525; padding: 15px; border-radius: 12px; border: 1px solid #333; }
+        .leaderboard h3 { color: #FFD700; border-bottom: 1px solid #444; padding-bottom: 10px; margin-top: 0; display: flex; justify-content: space-between; }
+        .entry { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #333; font-size: 0.95rem; }
+        .entry:last-child { border: none; }
+        .rank { color: #FFD700; font-weight: bold; margin-right: 10px; width: 25px; display: inline-block; }
+        .name { color: #eee; }
+        .count { color: #888; font-size: 0.85rem; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>Theophos Creator Hub</h2>
-    <div id="video-area">Finding video...</div>
+    <h2 style="color: #FFD700; margin-bottom: 5px;">Theophos Hub</h2>
+    <p style="color: #888; font-size: 0.8rem; margin-bottom: 20px;">Covenant of Support & Discipline</p>
+
+    <div class="video-wrapper" id="video-area">
+        </div>
+
     <div id="timer">120s</div>
-    <button id="submitBtn" class="btn" onclick="location.href='submit.html'">UNLOCK SUBMISSION</button>
+    
+    <button id="submitBtn" class="btn" onclick="location.href='submit.html'">Unlock My Submission</button>
 
     <div class="leaderboard">
         <h3>Top Supporters 🏆</h3>
@@ -35,43 +43,64 @@
 </div>
 
 <script>
+    // YOUR FIREBASE CONFIG
     const firebaseConfig = {
       apiKey: "AIzaSyDphx9VNL7zycGOofDyDyY688pggYl4mns",
       authDomain: "theophos-rewards-system.firebaseapp.com",
       databaseURL: "https://theophos-rewards-system-default-rtdb.firebaseio.com",
       projectId: "theophos-rewards-system",
-      storageBucket: "theophos-rewards-system.firebasestorage.app",
       appId: "1:669378222:web:4a295fab14a09ff3662f3f"
     };
 
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    // 1. Fetch Videos & Setup Viewer
+    // 1. Fetch & Fix Video Links
     db.ref('videos').once('value').then((snapshot) => {
         let videos = [];
         snapshot.forEach(child => { 
             videos.push({ key: child.key, ...child.val() }); 
         });
 
-        // Simple Randomizer
         if (videos.length > 0) {
             const picked = videos[Math.floor(Math.random() * videos.length)];
-            document.getElementById('video-area').innerHTML = `<iframe src="https://www.youtube.com/embed/${picked.id}?autoplay=1" allow="autoplay"></iframe>`;
+            
+            // SMART LINK CLEANER: Fixes Shorts and standard URLs
+            let videoId = picked.id;
+            if (videoId.includes('shorts/')) {
+                videoId = videoId.split('shorts/')[1].split('?')[0].split('&')[0];
+            } else if (videoId.includes('watch?v=')) {
+                videoId = videoId.split('v=')[1].split('&')[0];
+            } else if (videoId.includes('youtu.be/')) {
+                videoId = videoId.split('be/')[1].split('?')[0];
+            }
+
+            document.getElementById('video-area').innerHTML = `
+                <iframe 
+                    src="https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&rel=0&modestbranding=1" 
+                    allow="autoplay; encrypted-media" 
+                    allowfullscreen>
+                </iframe>`;
+            
             startTimer(picked.key);
         } else {
-            document.getElementById('video-area').innerHTML = "<p>No videos available. Be the first to submit!</p>";
+            document.getElementById('video-area').innerHTML = "<div style='padding:40px;'>No videos yet. Be the first leader!</div>";
             document.getElementById('submitBtn').style.display = "block";
             document.getElementById('timer').style.display = "none";
         }
 
-        // 2. Generate Leaderboard
-        const sorted = videos.sort((a, b) => (b.views || 0) - (a.views || 0)).slice(0, 5);
+        // 2. Pro Leaderboard (Clean Names)
+        const sorted = videos.sort((a, b) => (b.views || 0) - (a.views || 0)).slice(0, 10);
         let leaderHTML = "";
         sorted.forEach((v, index) => {
-            leaderHTML += `<div class="entry"><span><span class="rank">#${index+1}</span> ${v.creator || 'Unknown'}</span> <span>${v.views || 0} Views</span></div>`;
+            const displayName = v.creator && v.creator !== "Unknown" ? v.creator : "Active Creator";
+            leaderHTML += `
+                <div class="entry">
+                    <span><span class="rank">#${index+1}</span> <span class="name">${displayName}</span></span> 
+                    <span class="count">${v.views || 0} Views</span>
+                </div>`;
         });
-        document.getElementById('leaderboard-data').innerHTML = leaderHTML || "No data yet.";
+        document.getElementById('leaderboard-data').innerHTML = leaderHTML || "Waiting for first contributors...";
     });
 
     function startTimer(videoKey) {
@@ -87,9 +116,9 @@
                 timerDiv.style.display = "none";
                 btn.style.display = "block";
 
-                // 3. Increment View Counter in Database
-                db.ref('videos/' + videoKey + '/views').transaction((currentViews) => {
-                    return (currentViews || 0) + 1;
+                // Update view counter
+                db.ref('videos/' + videoKey + '/views').transaction((current) => {
+                    return (current || 0) + 1;
                 });
             }
         }, 1000);
