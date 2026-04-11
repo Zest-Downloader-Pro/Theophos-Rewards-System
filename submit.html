@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Submit Video | Theophos Rewards</title>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
+    <style>
+        body { background: #0f0f0f; color: white; font-family: sans-serif; text-align: center; padding: 40px 20px; }
+        .box { background: #1a1a1a; padding: 30px; border-radius: 15px; border: 2px solid #FFD700; max-width: 400px; margin: auto; }
+        input { width: 90%; padding: 15px; margin: 20px 0; border-radius: 8px; border: 1px solid #333; background: #000; color: white; }
+        button { background: #FFD700; color: #000; padding: 15px 30px; border: none; border-radius: 8px; font-weight: bold; width: 100%; cursor: pointer; }
+        h2 { color: #FFD700; }
+    </style>
+</head>
+<body>
+
+<div class="box">
+    <h2>Success!</h2>
+    <p>You've earned your reward. Paste your YouTube link below.</p>
+    <input type="text" id="videoUrl" placeholder="https://www.youtube.com/watch?v=...">
+    <button onclick="uploadLink()">ADD MY VIDEO</button>
+</div>
+
+<script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyDphx9VNL7zycGOofDyDyY688pggYl4mns",
+      authDomain: "theophos-rewards-system.firebaseapp.com",
+      databaseURL: "https://theophos-rewards-system-default-rtdb.firebaseio.com",
+      projectId: "theophos-rewards-system",
+      storageBucket: "theophos-rewards-system.firebasestorage.app",
+      messagingSenderId: "669378222",
+      appId: "1:669378222:web:4a295fab14a09ff3662f3f"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    function uploadLink() {
+        const url = document.getElementById('videoUrl').value;
+        const videoIdMatch = url.match(/(?:https?:\/{2})?(?:w{3}\.)?youtu(?:be)?\.(?:com|be)(?:\/watch\?v=|\/)([^\s&]+)/);
+
+        if (videoIdMatch && videoIdMatch[1]) {
+            db.ref('videos').push({
+                id: videoIdMatch[1],
+                timestamp: Date.now()
+            }).then(() => {
+                alert("Boom! Your video is live in the rotation.");
+                window.location.href = "index.html"; 
+            });
+        } else {
+            alert("Chale, paste a full YouTube URL!");
+        }
+    }
+</script>
+</body>
+</html>
