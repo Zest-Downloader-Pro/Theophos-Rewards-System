@@ -3,24 +3,39 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Submit Video | Theophos Rewards</title>
+    <title>Theophos | Verify Proof</title>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-storage-compat.js"></script>
     <style>
-        body { background: #0f0f0f; color: white; font-family: sans-serif; text-align: center; padding: 40px 20px; }
-        .box { background: #1a1a1a; padding: 30px; border-radius: 15px; border: 2px solid #FFD700; max-width: 400px; margin: auto; }
-        input { width: 90%; padding: 15px; margin: 20px 0; border-radius: 8px; border: 1px solid #333; background: #000; color: white; }
-        button { background: #FFD700; color: #000; padding: 15px 30px; border: none; border-radius: 8px; font-weight: bold; width: 100%; cursor: pointer; }
-        h2 { color: #FFD700; }
+        body { background: #0f0f0f; color: white; font-family: sans-serif; text-align: center; padding: 20px; }
+        .box { background: #1a1a1a; padding: 25px; border-radius: 15px; border: 2px solid #FFD700; max-width: 400px; margin: auto; }
+        input[type="text"], input[type="file"] { width: 90%; padding: 12px; margin: 10px 0; border-radius: 5px; background: #000; color: white; border: 1px solid #333; }
+        .check-item { margin: 10px 0; display: flex; align-items: center; font-size: 0.9rem; }
+        input[type="checkbox"] { margin-right: 10px; accent-color: #FFD700; }
+        button { background: #FFD700; color: #000; padding: 15px; border: none; border-radius: 8px; font-weight: bold; width: 100%; cursor: pointer; opacity: 0.5; }
+        button.active { opacity: 1; }
+        h2 { color: #FFD700; margin-bottom: 5px; }
+        label { display: block; text-align: left; margin-top: 10px; color: #FFD700; font-size: 0.8rem; }
     </style>
 </head>
 <body>
 
 <div class="box">
-    <h2>Success!</h2>
-    <p>You've earned your reward. Paste your YouTube link below.</p>
-    <input type="text" id="videoUrl" placeholder="https://www.youtube.com/watch?v=...">
-    <button onclick="uploadLink()">ADD MY VIDEO</button>
+    <h2>Proof of Support</h2>
+    <p style="font-size: 0.8rem; color: #888;">Upload proof to join the rotation</p>
+    
+    <div class="check-group">
+        <div class="check-item"><input type="checkbox" id="c1" onchange="validate()"> I Liked & Subscribed</div>
+    </div>
+
+    <label>Upload Screenshot of Subscribed Channel:</label>
+    <input type="file" id="screenshot" accept="image/*" onchange="validate()">
+
+    <input type="text" id="channelName" placeholder="Your Channel Name">
+    <input type="text" id="videoUrl" placeholder="Paste YOUR Video Link">
+    
+    <button id="mainBtn" onclick="uploadEverything()" disabled>VERIFY & SUBMIT</button>
 </div>
 
 <script>
@@ -30,28 +45,51 @@
       databaseURL: "https://theophos-rewards-system-default-rtdb.firebaseio.com",
       projectId: "theophos-rewards-system",
       storageBucket: "theophos-rewards-system.firebasestorage.app",
-      messagingSenderId: "669378222",
       appId: "1:669378222:web:4a295fab14a09ff3662f3f"
     };
 
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
+    const storage = firebase.storage();
 
-    function uploadLink() {
+    function validate() {
+        const btn = document.getElementById('mainBtn');
+        const hasFile = document.getElementById('screenshot').files.length > 0;
+        const hasCheck = document.getElementById('c1').checked;
+        
+        btn.disabled = !(hasFile && hasCheck);
+        btn.className = (hasFile && hasCheck) ? 'active' : '';
+    }
+
+    async function uploadEverything() {
+        const file = document.getElementById('screenshot').files[0];
         const url = document.getElementById('videoUrl').value;
+        const name = document.getElementById('channelName').value;
         const videoIdMatch = url.match(/(?:https?:\/{2})?(?:w{3}\.)?youtu(?:be)?\.(?:com|be)(?:\/watch\?v=|\/)([^\s&]+)/);
 
-        if (videoIdMatch && videoIdMatch[1]) {
-            db.ref('videos').push({
-                id: videoIdMatch[1],
-                timestamp: Date.now()
-            }).then(() => {
-                alert("Boom! Your video is live in the rotation.");
-                window.location.href = "index.html"; 
-            });
-        } else {
-            alert("Chale, paste a full YouTube URL!");
+        if (!videoIdMatch || !name) {
+            alert("Please provide a name and valid link!");
+            return;
         }
+
+        document.getElementById('mainBtn').innerText = "Uploading...";
+
+        // 1. Upload Screenshot to Firebase Storage
+        const storageRef = storage.ref('screenshots/' + name + '_' + Date.now());
+        await storageRef.put(file);
+        const imgUrl = await storageRef.getDownloadURL();
+
+        // 2. Save Video Info to Database
+        db.ref('videos').push({
+            id: videoIdMatch[1],
+            creator: name,
+            proof: imgUrl,
+            views: 0,
+            timestamp: Date.now()
+        }).then(() => {
+            alert("Submission Successful!");
+            window.location.href = "index.html";
+        });
     }
 </script>
 </body>
