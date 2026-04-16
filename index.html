@@ -6,21 +6,23 @@
     <title>Theophos Creator Hub | Growth & Loyalty</title>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
     <style>
         body { font-family: 'Segoe UI', sans-serif; background: #0f0f0f; color: #fff; text-align: center; padding: 20px; margin: 0; }
         .container { max-width: 500px; margin: auto; background: #1a1a1a; padding: 20px; border-radius: 20px; border: 2px solid #FFD700; box-shadow: 0 0 20px rgba(255, 215, 0, 0.2); }
         .video-wrapper { position: relative; width: 100%; padding-bottom: 56.25%; height: 0; border-radius: 12px; overflow: hidden; background: #000; }
         .video-wrapper iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none; }
         #timer { font-size: 3rem; color: #FFD700; margin: 20px 0; font-weight: bold; text-shadow: 0 0 10px rgba(255, 215, 0, 0.5); }
-        .btn { background: #FFD700; color: #000; padding: 18px; border: none; border-radius: 12px; font-weight: bold; width: 100%; display: none; cursor: pointer; font-size: 1.1rem; text-transform: uppercase; }
+        .btn { background: #FFD700; color: #000; padding: 18px; border: none; border-radius: 12px; font-weight: bold; width: 100%; cursor: pointer; font-size: 1.1rem; text-transform: uppercase; margin-top: 10px; transition: 0.3s; }
+        .btn:disabled { background: #555; color: #888; cursor: not-allowed; }
+        
+        /* New Styles for Prompts */
+        .prompt-box { background: rgba(255, 215, 0, 0.1); border: 1px dashed #FFD700; padding: 10px; border-radius: 10px; margin: 15px 0; font-size: 0.9rem; color: #FFD700; }
         
         .leaderboard { margin-top: 30px; text-align: left; background: #252525; padding: 15px; border-radius: 12px; border: 1px solid #333; }
         .leaderboard h3 { color: #FFD700; border-bottom: 1px solid #444; padding-bottom: 10px; margin-top: 0; display: flex; justify-content: space-between; }
         .entry { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #333; font-size: 0.95rem; }
-        .entry:last-child { border: none; }
         .rank { color: #FFD700; font-weight: bold; margin-right: 10px; width: 25px; display: inline-block; }
-        .name { color: #eee; }
-        .count { color: #888; font-size: 0.85rem; }
     </style>
 </head>
 <body>
@@ -29,12 +31,20 @@
     <h2 style="color: #FFD700; margin-bottom: 5px;">Theophos Hub</h2>
     <p style="color: #888; font-size: 0.8rem; margin-bottom: 20px;">Covenant of Support & Discipline</p>
 
-    <div class="video-wrapper" id="video-area">
-        </div>
+    <div id="auth-area" style="margin-bottom: 15px;">
+        <button id="loginBtn" class="btn" style="display: block;">Login with Google to Start</button>
+        <p id="user-greet" style="display: none; color: #FFD700; font-size: 0.9rem;"></p>
+    </div>
+
+    <div class="video-wrapper" id="video-area"></div>
+
+    <div id="prompt-container" class="prompt-box" style="display: none;">
+        <strong>COMMENT TASK:</strong> <span id="comment-prompt">Loading task...</span>
+    </div>
 
     <div id="timer">120s</div>
     
-    <button id="submitBtn" class="btn" onclick="location.href='submit.html'">Unlock My Submission</button>
+    <button id="submitBtn" class="btn" style="display: none;" onclick="location.href='submit.html'">Unlock My Submission</button>
 
     <div class="leaderboard">
         <h3>Top Supporters 🏆</h3>
@@ -43,7 +53,6 @@
 </div>
 
 <script>
-    // YOUR FIREBASE CONFIG
     const firebaseConfig = {
       apiKey: "AIzaSyDphx9VNL7zycGOofDyDyY688pggYl4mns",
       authDomain: "theophos-rewards-system.firebaseapp.com",
@@ -54,74 +63,107 @@
 
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
+    const auth = firebase.auth();
 
-    // 1. Fetch & Fix Video Links
-    db.ref('videos').once('value').then((snapshot) => {
-        let videos = [];
-        snapshot.forEach(child => { 
-            videos.push({ key: child.key, ...child.val() }); 
-        });
+    const commentPrompts = [
+        "What was the most helpful part of this video?",
+        "Give the creator one tip to improve their lighting or sound.",
+        "Ask a question about something you didn't understand.",
+        "Which specific tip in this video will you try first?"
+    ];
 
-        if (videos.length > 0) {
-            const picked = videos[Math.floor(Math.random() * videos.length)];
-            
-            // SMART LINK CLEANER: Fixes Shorts and standard URLs
-            let videoId = picked.id;
-            if (videoId.includes('shorts/')) {
-                videoId = videoId.split('shorts/')[1].split('?')[0].split('&')[0];
-            } else if (videoId.includes('watch?v=')) {
-                videoId = videoId.split('v=')[1].split('&')[0];
-            } else if (videoId.includes('youtu.be/')) {
-                videoId = videoId.split('be/')[1].split('?')[0];
-            }
+    let timerActive = true;
+    let currentUser = null;
 
-            document.getElementById('video-area').innerHTML = `
-                <iframe 
-                    src="https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&rel=0&modestbranding=1" 
-                    allow="autoplay; encrypted-media" 
-                    allowfullscreen>
-                </iframe>`;
-            
-            startTimer(picked.key);
-        } else {
-            document.getElementById('video-area').innerHTML = "<div style='padding:40px;'>No videos yet. Be the first leader!</div>";
-            document.getElementById('submitBtn').style.display = "block";
-            document.getElementById('timer').style.display = "none";
+    // --- GOOGLE LOGIN LOGIC ---
+    document.getElementById('loginBtn').onclick = () => {
+        const provider = new firebase.auth.GoogleAuthProvider();
+        auth.signInWithPopup(provider);
+    };
+
+    auth.onAuthStateChanged((user) => {
+        if (user) {
+            currentUser = user;
+            document.getElementById('loginBtn').style.display = "none";
+            document.getElementById('user-greet').innerText = "Shalom, " + user.displayName;
+            document.getElementById('user-greet').style.display = "block";
+            loadVideoTask();
         }
-
-        // 2. Pro Leaderboard (Clean Names)
-        const sorted = videos.sort((a, b) => (b.views || 0) - (a.views || 0)).slice(0, 10);
-        let leaderHTML = "";
-        sorted.forEach((v, index) => {
-            const displayName = v.creator && v.creator !== "Unknown" ? v.creator : "Active Creator";
-            leaderHTML += `
-                <div class="entry">
-                    <span><span class="rank">#${index+1}</span> <span class="name">${displayName}</span></span> 
-                    <span class="count">${v.views || 0} Views</span>
-                </div>`;
-        });
-        document.getElementById('leaderboard-data').innerHTML = leaderHTML || "Waiting for first contributors...";
     });
 
+    function loadVideoTask() {
+        db.ref('videos').once('value').then((snapshot) => {
+            let videos = [];
+            snapshot.forEach(child => { videos.push({ key: child.key, ...child.val() }); });
+
+            if (videos.length > 0) {
+                // In the future, we will filter 'videos' here to skip channels this user already joined
+                const picked = videos[Math.floor(Math.random() * videos.length)];
+                
+                let videoId = picked.id;
+                if (videoId.includes('shorts/')) videoId = videoId.split('shorts/')[1].split('?')[0];
+                else if (videoId.includes('v=')) videoId = videoId.split('v=')[1].split('&')[0];
+                else if (videoId.includes('youtu.be/')) videoId = videoId.split('be/')[1].split('?')[0];
+
+                document.getElementById('video-area').innerHTML = `
+                    <iframe src="https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&rel=0" 
+                            allow="autoplay; encrypted-media" allowfullscreen></iframe>`;
+                
+                // Show the comment prompt
+                document.getElementById('prompt-container').style.display = "block";
+                document.getElementById('comment-prompt').innerText = commentPrompts[Math.floor(Math.random() * commentPrompts.length)];
+                
+                startTimer(picked.key);
+            }
+            // ... Leaderboard code remains the same as your original ...
+            renderLeaderboard(videos);
+        });
+    }
+
+    // --- THE WATCHDOG TIMER (ANTI-CHEAT) ---
     function startTimer(videoKey) {
         let time = 120;
         const timerDiv = document.getElementById('timer');
         const btn = document.getElementById('submitBtn');
 
-        const interval = setInterval(() => {
-            time--;
-            timerDiv.innerText = time + "s";
-            if (time <= 0) {
-                clearInterval(interval);
-                timerDiv.style.display = "none";
-                btn.style.display = "block";
+        // Pause timer if user leaves the tab
+        document.addEventListener("visibilitychange", () => {
+            if (document.hidden) {
+                timerActive = false;
+                timerDiv.style.color = "red";
+                timerDiv.innerText = "PAUSED";
+            } else {
+                timerActive = true;
+                timerDiv.style.color = "#FFD700";
+            }
+        });
 
-                // Update view counter
-                db.ref('videos/' + videoKey + '/views').transaction((current) => {
-                    return (current || 0) + 1;
-                });
+        const interval = setInterval(() => {
+            if (timerActive) {
+                time--;
+                timerDiv.innerText = time + "s";
+                if (time <= 0) {
+                    clearInterval(interval);
+                    timerDiv.style.display = "none";
+                    btn.style.display = "block";
+                    // Update database
+                    db.ref('videos/' + videoKey + '/views').transaction(c => (c || 0) + 1);
+                    // Record that this user completed this channel
+                    if(currentUser) {
+                        db.ref('user_activity/' + currentUser.uid + '/' + videoKey).set(true);
+                    }
+                }
             }
         }, 1000);
+    }
+
+    function renderLeaderboard(videos) {
+        const sorted = videos.sort((a, b) => (b.views || 0) - (a.views || 0)).slice(0, 10);
+        let leaderHTML = "";
+        sorted.forEach((v, index) => {
+            leaderHTML += `<div class="entry"><span><span class="rank">#${index+1}</span> ${v.creator || "Creator"}</span> <span class="count">${v.views || 0} Views</span></div>`;
+        });
+        document.getElementById('leaderboard-data').innerHTML = leaderHTML;
     }
 </script>
 </body>
