@@ -1,16 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Theophos Viral Hub</title>
+    
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-database-compat.js"></script>
+
+    <style>
+        body { background: #0f0f0f; color: white; font-family: sans-serif; text-align: center; margin: 0; padding: 20px; }
+        .container { max-width: 450px; margin: auto; background: #1a1a1a; padding: 20px; border-radius: 15px; border: 1px solid #333; }
+        h2 { color: #FFD700; margin-bottom: 5px; }
+        #video-area iframe { width: 100%; height: 250px; border-radius: 10px; border: 2px solid #333; margin-top: 15px; }
+        .btn { background: #FFD700; color: #000; padding: 15px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; width: 100%; margin-top: 15px; font-size: 1rem; text-transform: uppercase; }
+        .btn:disabled { opacity: 0.3; cursor: not-allowed; }
+        #timer { font-size: 2.5rem; font-weight: bold; color: #FFD700; margin: 15px 0; display: none; }
+        #user-greet { color: #FFD700; font-weight: bold; margin-bottom: 20px; font-size: 0.9rem; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Theophos Viral Hub</h2>
+    <div id="user-greet" style="display:none;"></div>
+    
+    <div id="login-section">
+        <p style="color: #888;">Log in to earn Energy and support the community.</p>
+        <button id="loginBtn" class="btn">LOGIN WITH GOOGLE</button>
+    </div>
+
+    <div id="task-section" style="display:none;">
+        <div id="video-area"></div>
+        <div id="timer">120s</div>
+    </div>
+
+    <button id="submitBtn" class="btn" style="display:none;" onclick="window.location.href='submit.html'">ADD MY LINK (20pts)</button>
+</div>
+
 <script>
-    // ... (Keep your Firebase Config here) ...
+    // --- CONFIGURATION ---
+    const firebaseConfig = {
+      apiKey: "AIzaSyDphx9VNL7zycGOofDyDyY688pggYl4mns",
+      authDomain: "theophos-rewards-system.firebaseapp.com",
+      databaseURL: "https://theophos-rewards-system-default-rtdb.firebaseio.com",
+      projectId: "theophos-rewards-system",
+      appId: "1:669378222:web:4a295fab14a09ff3662f3f"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+    const auth = firebase.auth();
 
     let currentUser = null;
     let timerActive = false;
     let points = 0;
-    let dailyCount = 0; 
-    let currentPickedVideo = null; // Added this to track the active video
+    let dailyCount = 0;
+    let currentPickedVideo = null;
+
+    // --- LOGIN LOGIC ---
+    document.getElementById('loginBtn').onclick = () => {
+        const provider = new firebase.auth.GoogleAuthProvider();
+        auth.signInWithPopup(provider).catch(err => alert("Login Error: " + err.message));
+    };
 
     auth.onAuthStateChanged((user) => {
         if (user) {
             currentUser = user;
             document.getElementById('login-section').style.display = "none";
+            document.getElementById('user-greet').style.display = "block";
             
             const today = new Date().toISOString().split('T')[0];
             db.ref('users/' + user.uid).on('value', (snap) => {
@@ -30,19 +89,20 @@
     function checkUploadEligibility() {
         const submitBtn = document.getElementById('submitBtn');
         if (points >= 20 && dailyCount >= 2) { 
+            submitBtn.style.display = "block";
             submitBtn.disabled = false;
             submitBtn.style.opacity = "1";
-            submitBtn.innerText = "ADD MY LINK (20pts)";
         } else {
+            submitBtn.style.display = "block";
             submitBtn.disabled = true;
             submitBtn.style.opacity = "0.5";
-            submitBtn.innerText = `Need 20pts & 2 daily supports (Current: ${dailyCount}/2)`;
+            submitBtn.innerText = `Need 20pts & 2 daily supports (${dailyCount}/2)`;
         }
     }
 
     async function loadVideoTask() {
         if (dailyCount >= 5) {
-            document.getElementById('video-area').innerHTML = "<h3>Daily Limit Reached!</h3><p>To protect the community, you can only support 5 leaders per day.</p>";
+            document.getElementById('video-area').innerHTML = "<h3>Daily Limit Reached!</h3><p>Come back tomorrow to support more leaders.</p>";
             return;
         }
 
@@ -58,16 +118,16 @@
 
             if (videos.length > 0) {
                 currentPickedVideo = videos[Math.floor(Math.random() * videos.length)];
-                
+                document.getElementById('task-section').style.display = "block";
                 document.getElementById('video-area').innerHTML = `
-                    <iframe id="yt-player" src="https://www.youtube.com/embed/${currentPickedVideo.id}?rel=0" allowfullscreen></iframe>
-                    <div style="margin-top:10px;">
-                        <button class="btn" style="background:#cc0000; color:white;" 
-                            onclick="verifyAndStart('${currentPickedVideo.id}', '${currentPickedVideo.key}')">
-                            STEP 1: SUB & COMMENT ON YOUTUBE
-                        </button>
-                    </div>
+                    <iframe src="https://www.youtube.com/embed/${currentPickedVideo.id}?rel=0" allowfullscreen></iframe>
+                    <button class="btn" style="background:#cc0000; color:white;" 
+                        onclick="verifyAndStart('${currentPickedVideo.id}', '${currentPickedVideo.key}')">
+                        STEP 1: SUB & COMMENT ON YOUTUBE
+                    </button>
                 `;
+            } else {
+                document.getElementById('video-area').innerHTML = "<p>All missions complete! Check back later.</p>";
             }
         });
     }
@@ -79,7 +139,7 @@
             timerActive = true;
             let time = 120;
             const tDiv = document.getElementById('timer');
-            tDiv.style.display = "block"; // Ensure timer is visible
+            tDiv.style.display = "block";
             
             const interval = setInterval(() => {
                 if (timerActive) {
@@ -97,31 +157,29 @@
 
     function completeTask(videoKey) {
         const today = new Date().toISOString().split('T')[0];
-        
-        // 1. Give Points & Update Stats
         db.ref('users/' + currentUser.uid + '/points').transaction(p => (p || 0) + 10);
         db.ref('users/' + currentUser.uid + '/daily_stats/' + today).transaction(c => (c || 0) + 1);
         db.ref('user_activity/' + currentUser.uid + '/' + videoKey).set(true);
         
-        // 2. Clear current UI elements to make room for Bonus
         document.getElementById('timer').style.display = "none";
-
-        // 3. INJECT THE VIRAL BONUS (This is where your code goes)
+        
+        // --- BINGE BONUS INJECTION ---
         const bonusArea = document.createElement('div');
-        bonusArea.id = "bonus-container";
         bonusArea.innerHTML = `
-            <div style="margin-top:20px; border-top:1px solid #333; padding-top:15px; background:#111; padding:10px; border-radius:10px;">
+            <div style="margin-top:20px; border-top:1px solid #333; padding-top:15px; background:#111; padding:15px; border-radius:10px;">
                 <p style="color:#FFD700; font-size:0.85rem; font-weight:bold;">🔥 BINGE BONUS UNLOCKED</p>
-                <p style="color:#888; font-size:0.75rem; margin-bottom:10px;">Watch a second video from <b>${currentPickedVideo.creator}</b> to help them go viral!</p>
-                <button class="btn" style="display:block; background:#FF0000; color:white; border:none;" 
+                <p style="color:#888; font-size:0.75rem; margin-bottom:10px;">Support <b>${currentPickedVideo.creator}</b> more by watching another video!</p>
+                <button class="btn" style="background:#FF0000; color:white; border:none;" 
                     onclick="window.open('https://www.youtube.com/results?search_query=${currentPickedVideo.creator}', '_blank')">
                     GO TO CHANNEL
                 </button>
-                <button class="btn" style="background:transparent; color:#555; font-size:0.7rem; margin-top:10px;" onclick="location.reload()">Next Task</button>
+                <button class="btn" style="background:transparent; color:#555; font-size:0.8rem;" onclick="location.reload()">Next Task</button>
             </div>
         `;
         document.getElementById('video-area').appendChild(bonusArea);
-        
-        alert("Success! +10 Points Added. Help this leader one last time!");
+        alert("Success! +10 Points Added.");
     }
 </script>
+
+</body>
+</html>
