@@ -3,40 +3,30 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Verify & Submit | Theophos</title>
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+    <title>Submit Link | Theophos Hub</title>
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-database-compat.js"></script>
     <style>
-        body { background: #0f0f0f; color: white; font-family: 'Segoe UI', sans-serif; text-align: center; padding: 20px; }
-        .box { background: #1a1a1a; padding: 25px; border-radius: 15px; border: 2px solid #FFD700; max-width: 400px; margin: auto; box-shadow: 0 0 15px rgba(255, 215, 0, 0.1); }
-        input[type="text"] { width: 90%; padding: 12px; margin: 10px 0; border-radius: 8px; border: 1px solid #333; background: #000; color: white; font-size: 1rem; }
-        .check-item { margin: 15px 0; display: flex; align-items: center; font-size: 0.95rem; color: #ccc; }
-        input[type="checkbox"] { width: 20px; height: 20px; margin-right: 10px; accent-color: #FFD700; cursor: pointer; }
-        button { background: #FFD700; color: #000; padding: 15px; border: none; border-radius: 8px; font-weight: bold; width: 100%; cursor: pointer; opacity: 0.3; transition: 0.3s; font-size: 1rem; }
-        button.active { opacity: 1; transform: scale(1.02); }
-        h2 { color: #FFD700; margin-bottom: 5px; }
-        .user-info { font-size: 0.8rem; color: #888; margin-bottom: 20px; }
+        body { background: #000; color: #fff; font-family: sans-serif; text-align: center; padding: 20px; }
+        .card { background: #111; padding: 30px; border-radius: 15px; border: 1px solid #FFD700; max-width: 400px; margin: auto; }
+        input { width: 90%; padding: 12px; margin: 10px 0; border-radius: 5px; background: #222; border: 1px solid #444; color: #fff; }
+        .energy { color: #FFD700; font-weight: bold; font-size: 1.2rem; margin-bottom: 20px; }
+        .btn { background: #FFD700; color: #000; padding: 15px; width: 100%; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; }
+        .btn:disabled { background: #555; cursor: not-allowed; }
     </style>
 </head>
 <body>
 
-<div class="box">
-    <h2>Verify Support</h2>
-    <p id="auth-status" class="user-info">Checking authorization...</p>
+<div class="card">
+    <h2>Add Your Link</h2>
+    <div id="energy-val" class="energy">Checking Energy...</div>
     
-    <div class="check-group">
-        <div class="check-item">
-            <input type="checkbox" id="c1" onchange="validate()"> 
-            <label for="c1">I Liked, Commented & Subscribed</label>
-        </div>
-    </div>
-
-    <input type="text" id="channelName" placeholder="Your YouTube Channel Name">
-    <input type="text" id="videoUrl" placeholder="Paste YOUR Video Link">
+    <input type="text" id="cName" placeholder="Channel Name">
+    <input type="text" id="vUrl" placeholder="YouTube Video URL">
     
-    <button id="mainBtn" onclick="uploadLink()" disabled>ADD MY VIDEO</button>
-    <p style="font-size: 0.7rem; color: #555; margin-top: 15px;">Covenant Rule: False claims lead to account ban.</p>
+    <button id="subBtn" class="btn" onclick="processPayment()" disabled>PAY 20pts & GO LIVE</button>
+    <p style="font-size: 0.7rem; color: #777; margin-top: 15px;">Your video will enter the safe rotation immediately.</p>
 </div>
 
 <script>
@@ -51,55 +41,44 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
     const auth = firebase.auth();
-    let currentUser = null;
+    let userPts = 0;
 
-    // SECURITY CHECK: Ensure user is logged in
     auth.onAuthStateChanged((user) => {
         if (user) {
-            currentUser = user;
-            document.getElementById('auth-status').innerText = "Logged in as: " + user.email;
+            db.ref('users/' + user.uid + '/points').on('value', (snap) => {
+                userPts = snap.val() || 0;
+                document.getElementById('energy-val').innerText = `Your Energy: ${userPts}pts`;
+                if (userPts >= 20) document.getElementById('subBtn').disabled = false;
+            });
         } else {
-            alert("Please login on the home page first!");
             window.location.href = "index.html";
         }
     });
 
-    function validate() {
-        const isChecked = document.getElementById('c1').checked;
-        const btn = document.getElementById('mainBtn');
-        btn.disabled = !isChecked;
-        btn.className = isChecked ? 'active' : '';
-    }
+    function processPayment() {
+        const url = document.getElementById('vUrl').value;
+        const name = document.getElementById('cName').value;
+        const vidId = url.match(/(?:v=|\/|be\/)([\w\-\_]{11})/);
 
-    function uploadLink() {
-        const url = document.getElementById('videoUrl').value;
-        const name = document.getElementById('channelName').value;
-        
-        // Regex to extract Video ID from various YouTube URL formats
-        const videoIdMatch = url.match(/(?:https?:\/{2})?(?:w{3}\.)?youtu(?:be)?\.(?:com|be)(?:\/watch\?v=|\/shorts\/|\/)([^\s&?]+)/);
-
-        if (videoIdMatch && videoIdMatch[1] && name && currentUser) {
-            const videoId = videoIdMatch[1];
+        if (vidId && name && userPts >= 20) {
+            // 1. Take the money
+            db.ref('users/' + auth.currentUser.uid + '/points').set(userPts - 20);
             
-            // Saving data with User ID and Email
+            // 2. Add to the safe rotation
             db.ref('videos').push({
-                id: videoId,
+                id: vidId[1],
                 creator: name,
-                userEmail: currentUser.email,
-                userId: currentUser.uid,
-                userPhoto: currentUser.photoURL,
                 views: 0,
-                timestamp: firebase.database.ServerValue.TIMESTAMP
+                timestamp: Date.now()
             }).then(() => {
-                alert("Shalom! Your video is now in the Covenant Rotation.");
-                window.location.href = "index.html"; 
-            }).catch((error) => {
-                alert("Error: " + error.message);
+                alert("Payment Success! Video added to rotation.");
+                window.location.href = "index.html";
             });
         } else {
-            alert("Check your link and name! Make sure you are logged in.");
+            alert("Check link or earn more points!");
         }
     }
 </script>
+
 </body>
 </html>
