@@ -1,4 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Theophos Viral Hub</title>
+    
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-database-compat.js"></script>
+
+    <style>
+        body { background: #0f0f0f; color: white; font-family: 'Segoe UI', sans-serif; text-align: center; margin: 0; padding: 20px; }
+        .container { max-width: 500px; margin: auto; background: #1a1a1a; padding: 20px; border-radius: 15px; border: 1px solid #333; }
+        h2 { color: #FFD700; margin-bottom: 5px; }
+        #video-area iframe { width: 100%; height: 250px; border-radius: 10px; border: 2px solid #333; margin-top: 15px; }
+        .btn { background: #FFD700; color: #000; padding: 15px 25px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; width: 100%; margin-top: 15px; font-size: 1rem; }
+        #timer { font-size: 2.5rem; font-weight: bold; color: #FFD700; margin: 15px 0; }
+        #prompt-container { background: #000; padding: 15px; border-radius: 10px; border-left: 4px solid #FFD700; margin-top: 15px; text-align: left; }
+        .leaderboard { margin-top: 30px; text-align: left; background: #111; padding: 15px; border-radius: 10px; }
+        .entry { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #222; font-size: 0.9rem; }
+        .rank { color: #FFD700; font-weight: bold; margin-right: 10px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Theophos Viral Hub</h2>
+    <p id="user-greet" style="display:none; color: #888; margin-bottom: 20px;"></p>
+    
+    <div id="login-section">
+        <p>A community of honest leaders. Log in to start supporting.</p>
+        <button id="loginBtn" class="btn">LOGIN WITH GOOGLE</button>
+    </div>
+
+    <div id="task-section" style="display:none;">
+        <div id="video-area"></div>
+        <div id="timer">120s</div>
+        
+        <div id="prompt-container">
+            <p style="color: #FFD700; font-size: 0.7rem; margin: 0;">COMMUNITY MISSION:</p>
+            <p id="comment-prompt" style="margin: 5px 0; font-size: 0.95rem;"></p>
+        </div>
+    </div>
+
+    <button id="submitBtn" class="btn" style="display:none;" onclick="window.location.href='submit.html'">ADD MY VIDEO LINK</button>
+
+    <div class="leaderboard">
+        <p style="font-weight: bold; color: #FFD700; margin-top: 0;">Top Contributors</p>
+        <div id="leaderboard-data">Loading rankings...</div>
+    </div>
+</div>
+
 <script>
+    // --- DATABASE CONFIGURATION ---
     const firebaseConfig = {
       apiKey: "AIzaSyDphx9VNL7zycGOofDyDyY688pggYl4mns",
       authDomain: "theophos-rewards-system.firebaseapp.com",
@@ -20,25 +74,26 @@
 
     let timerActive = true;
     let currentUser = null;
-    let currentPickedVideo = null; // Stores the video data for the Viral Bonus
+    let currentPickedVideo = null;
 
     // --- GOOGLE LOGIN ---
     document.getElementById('loginBtn').onclick = () => {
         const provider = new firebase.auth.GoogleAuthProvider();
-        auth.signInWithPopup(provider);
+        auth.signInWithPopup(provider).catch(err => alert("Login Error: " + err.message));
     };
 
     auth.onAuthStateChanged((user) => {
         if (user) {
             currentUser = user;
-            document.getElementById('loginBtn').style.display = "none";
+            document.getElementById('login-section').style.display = "none";
             document.getElementById('user-greet').innerText = "Shalom, " + user.displayName;
             document.getElementById('user-greet').style.display = "block";
+            document.getElementById('task-section').style.display = "block";
             loadVideoTask();
         }
     });
 
-    // --- 1. THE DRIP-FEED LOADER (SMART CHECK) ---
+    // --- THE DRIP-FEED LOADER ---
     async function loadVideoTask() {
         const userRef = db.ref('user_activity/' + currentUser.uid);
         const userHistorySnap = await userRef.once('value');
@@ -48,7 +103,6 @@
             let videos = [];
             snapshot.forEach(child => { 
                 const videoKey = child.key;
-                // Skip if user already supported this specific entry
                 if (!userHistory[videoKey]) {
                     videos.push({ key: videoKey, ...child.val() }); 
                 }
@@ -58,6 +112,7 @@
                 currentPickedVideo = videos[Math.floor(Math.random() * videos.length)];
                 
                 let videoId = currentPickedVideo.id;
+                // Cleaner logic for IDs
                 if (videoId.includes('shorts/')) videoId = videoId.split('shorts/')[1].split('?')[0];
                 else if (videoId.includes('v=')) videoId = videoId.split('v=')[1].split('&')[0];
                 else if (videoId.includes('youtu.be/')) videoId = videoId.split('be/')[1].split('?')[0];
@@ -66,15 +121,13 @@
                     <iframe src="https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&rel=0" 
                             allow="autoplay; encrypted-media" allowfullscreen></iframe>`;
                 
-                document.getElementById('prompt-container').style.display = "block";
                 document.getElementById('comment-prompt').innerText = commentPrompts[Math.floor(Math.random() * commentPrompts.length)];
                 
                 startTimer(currentPickedVideo.key);
             } else {
                 document.getElementById('video-area').innerHTML = `
-                    <div style='padding:40px;'>
-                        <h3>Mission Accomplished!</h3>
-                        <p>You've supported everyone for now. Add your link or check back later!</p>
+                    <div style='padding:20px;'>
+                        <p>Mission Accomplished! You've supported all current leaders.</p>
                     </div>`;
                 document.getElementById('submitBtn').style.display = "block";
                 document.getElementById('timer').style.display = "none";
@@ -83,7 +136,7 @@
         });
     }
 
-    // --- 2. THE WATCHDOG TIMER & VIRAL BONUS ---
+    // --- TIMER & BONUS ---
     function startTimer(videoKey) {
         let time = 120;
         const timerDiv = document.getElementById('timer');
@@ -109,37 +162,36 @@
                     timerDiv.style.display = "none";
                     btn.style.display = "block";
 
-                    // Update View count in Database
+                    // Update View count & History
                     db.ref('videos/' + videoKey + '/views').transaction(c => (c || 0) + 1);
-                    
-                    // Record activity so they don't see this video again
                     db.ref('user_activity/' + currentUser.uid + '/' + videoKey).set(true);
 
-                    // --- THE VIRAL BONUS INJECTION ---
+                    // VIRAL BONUS
                     const bonusArea = document.createElement('div');
                     bonusArea.innerHTML = `
-                        <div style="margin-top:20px; border-top:1px solid #333; padding-top:15px; animation: fadeIn 1s;">
-                            <p style="color:#FFD700; font-size:0.85rem; font-weight:bold;">🔥 VIRAL BONUS ACTIVE</p>
-                            <p style="color:#888; font-size:0.75rem; margin-bottom:10px;">Support this creator further by viewing their channel!</p>
-                            <button class="btn" style="display:block; background:#333; color:white; border:1px solid #FFD700;" 
+                        <div style="margin-top:20px; border-top:1px solid #333; padding-top:15px;">
+                            <p style="color:#FFD700; font-size:0.8rem; font-weight:bold;">🔥 VIRAL BONUS ACTIVE</p>
+                            <button class="btn" style="background:#333; color:white; border:1px solid #FFD700;" 
                                 onclick="window.open('https://www.youtube.com/results?search_query=${currentPickedVideo.creator}', '_blank')">
                                 Visit ${currentPickedVideo.creator}
                             </button>
                         </div>
                     `;
-                    document.querySelector('.container').appendChild(bonusArea);
+                    document.getElementById('task-section').appendChild(bonusArea);
                 }
             }
         }, 1000);
     }
 
-    function renderLeaderboard(videos) {
-        // Sort by views and show top 10
-        const sorted = videos.sort((a, b) => (b.views || 0) - (a.views || 0)).slice(0, 10);
+    function renderLeaderboard(allVideos) {
+        const sorted = allVideos.sort((a, b) => (b.views || 0) - (a.views || 0)).slice(0, 5);
         let leaderHTML = "";
         sorted.forEach((v, index) => {
-            leaderHTML += `<div class="entry"><span><span class="rank">#${index+1}</span> ${v.creator || "Creator"}</span> <span class="count">${v.views || 0} Views</span></div>`;
+            leaderHTML += `<div class="entry"><span><span class="rank">#${index+1}</span> ${v.creator}</span> <span>${v.views || 0} Views</span></div>`;
         });
         document.getElementById('leaderboard-data').innerHTML = leaderHTML || "No active campaigns.";
     }
 </script>
+
+</body>
+</html>
