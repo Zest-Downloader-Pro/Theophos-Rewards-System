@@ -1,44 +1,6 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Submit Link | Theophos Hub</title>
-    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-database-compat.js"></script>
-    <style>
-        body { background: #000; color: #fff; font-family: sans-serif; text-align: center; padding: 20px; }
-        .card { background: #111; padding: 30px; border-radius: 15px; border: 1px solid #FFD700; max-width: 400px; margin: auto; }
-        input { width: 90%; padding: 12px; margin: 10px 0; border-radius: 5px; background: #222; border: 1px solid #444; color: #fff; }
-        .energy { color: #FFD700; font-weight: bold; font-size: 1.2rem; margin-bottom: 20px; }
-        .btn { background: #FFD700; color: #000; padding: 15px; width: 100%; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; }
-        .btn:disabled { background: #555; cursor: not-allowed; }
-    </style>
-</head>
-<body>
-
-<div class="card">
-    <h2>Add Your Link</h2>
-    <div id="energy-val" class="energy">Checking Energy...</div>
-    
-    <input type="text" id="cName" placeholder="Channel Name">
-    <input type="text" id="vUrl" placeholder="YouTube Video URL">
-    
-    <button id="subBtn" class="btn" onclick="processPayment()" disabled>PAY 20pts & GO LIVE</button>
-    <p style="font-size: 0.7rem; color: #777; margin-top: 15px;">Your video will enter the safe rotation immediately.</p>
-</div>
-
 <script>
-    const firebaseConfig = {
-      apiKey: "AIzaSyDphx9VNL7zycGOofDyDyY688pggYl4mns",
-      authDomain: "theophos-rewards-system.firebaseapp.com",
-      databaseURL: "https://theophos-rewards-system-default-rtdb.firebaseio.com",
-      projectId: "theophos-rewards-system",
-      appId: "1:669378222:web:4a295fab14a09ff3662f3f"
-    };
+    // ... (Keep your Firebase Config here) ...
 
-    firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
     const auth = firebase.auth();
     let userPts = 0;
@@ -48,10 +10,9 @@
             db.ref('users/' + user.uid + '/points').on('value', (snap) => {
                 userPts = snap.val() || 0;
                 document.getElementById('energy-val').innerText = `Your Energy: ${userPts}pts`;
+                // Button only activates if they have 20pts
                 if (userPts >= 20) document.getElementById('subBtn').disabled = false;
             });
-        } else {
-            window.location.href = "index.html";
         }
     });
 
@@ -61,24 +22,18 @@
         const vidId = url.match(/(?:v=|\/|be\/)([\w\-\_]{11})/);
 
         if (vidId && name && userPts >= 20) {
-            // 1. Take the money
+            // Deduct 20 points
             db.ref('users/' + auth.currentUser.uid + '/points').set(userPts - 20);
             
-            // 2. Add to the safe rotation
+            // Add to the public pool
             db.ref('videos').push({
                 id: vidId[1],
                 creator: name,
-                views: 0,
                 timestamp: Date.now()
             }).then(() => {
-                alert("Payment Success! Video added to rotation.");
+                alert("Success! 20pts deducted. Your video is now in rotation.");
                 window.location.href = "index.html";
             });
-        } else {
-            alert("Check link or earn more points!");
         }
     }
 </script>
-
-</body>
-</html>
